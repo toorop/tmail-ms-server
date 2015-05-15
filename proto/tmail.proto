@@ -1,0 +1,17 @@
+package main;
+
+message SmtpResponseBase {
+	required int32 smtpCode = 1;
+	required string smtpMsg = 2;
+}
+
+
+message Helo {
+	required string helo = 1;
+}
+
+
+message MailFrom {
+	required string mailFrom = 1; 
+	optional string remoteHostIp = 2; 
+}

@@ -1,2 +1,3 @@
 # tmail-ms-server
-Microservices server for tmail
+
+Microservices HTTP server for tmail (POC)
