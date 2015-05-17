@@ -1,17 +1,21 @@
 package main;
 
-message SmtpResponseBase {
-	required int32 smtpCode = 1;
-	required string smtpMsg = 2;
+message SmtpdResponse {
+	required int32 smtp_code = 1;
+	required string smtp_msg = 2;
+
+	optional bool close_connection = 16;		// if true connection wil be closed
+	optional string data_link = 17; // link for downloading additional - large - data (ie raw mail)
+	repeated string headers2add = 18; // headers to add 
 }
 
 
-message Helo {
-	required string helo = 1;
+message SmtpdNewClientMsg {
+	required string session_id = 1; // smtpd session ID
+	required string remote_ip = 2; 	// remote (client) IP
 }
 
-
-message MailFrom {
-	required string mailFrom = 1; 
-	optional string remoteHostIp = 2; 
+message SmtpdHeloMsg {
+	required string session_id = 1;
+	required string helo = 2;
 }
