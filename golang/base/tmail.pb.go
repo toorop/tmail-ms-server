@@ -11,7 +11,6 @@ It is generated from these files:
 It has these top-level messages:
 	SmtpdResponse
 	SmtpdNewClientMsg
-	SmtpdHeloMsg
 */
 package main
 
@@ -27,7 +26,7 @@ type SmtpdResponse struct {
 	SmtpMsg          *string  `protobuf:"bytes,2,req,name=smtp_msg" json:"smtp_msg,omitempty"`
 	CloseConnection  *bool    `protobuf:"varint,16,opt,name=close_connection" json:"close_connection,omitempty"`
 	DataLink         *string  `protobuf:"bytes,17,opt,name=data_link" json:"data_link,omitempty"`
-	Headers2Add      []string `protobuf:"bytes,18,rep,name=headers2add" json:"headers2add,omitempty"`
+	ExtraHeaders     []string `protobuf:"bytes,18,rep,name=extra_headers" json:"extra_headers,omitempty"`
 	XXX_unrecognized []byte   `json:"-"`
 }
 
@@ -63,9 +62,9 @@ func (m *SmtpdResponse) GetDataLink() string {
 	return ""
 }
 
-func (m *SmtpdResponse) GetHeaders2Add() []string {
+func (m *SmtpdResponse) GetExtraHeaders() []string {
 	if m != nil {
-		return m.Headers2Add
+		return m.ExtraHeaders
 	}
 	return nil
 }
@@ -90,30 +89,6 @@ func (m *SmtpdNewClientMsg) GetSessionId() string {
 func (m *SmtpdNewClientMsg) GetRemoteIp() string {
 	if m != nil && m.RemoteIp != nil {
 		return *m.RemoteIp
-	}
-	return ""
-}
-
-type SmtpdHeloMsg struct {
-	SessionId        *string `protobuf:"bytes,1,req,name=session_id" json:"session_id,omitempty"`
-	Helo             *string `protobuf:"bytes,2,req,name=helo" json:"helo,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
-}
-
-func (m *SmtpdHeloMsg) Reset()         { *m = SmtpdHeloMsg{} }
-func (m *SmtpdHeloMsg) String() string { return proto.CompactTextString(m) }
-func (*SmtpdHeloMsg) ProtoMessage()    {}
-
-func (m *SmtpdHeloMsg) GetSessionId() string {
-	if m != nil && m.SessionId != nil {
-		return *m.SessionId
-	}
-	return ""
-}
-
-func (m *SmtpdHeloMsg) GetHelo() string {
-	if m != nil && m.Helo != nil {
-		return *m.Helo
 	}
 	return ""
 }

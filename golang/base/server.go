@@ -4,11 +4,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 )
 
 // smtpdNewClientHandler handles /smtpdnewclient
+// If smtpd client IP is 127.0.0.1 connection is rejected
 func smtpdNewClientHandler(w http.ResponseWriter, r *http.Request) {
 	// read request body, ie a protobuf serialized SmtpdNewClientMsg
 	data, err := ioutil.ReadAll(r.Body)
@@ -20,28 +22,35 @@ func smtpdNewClientHandler(w http.ResponseWriter, r *http.Request) {
 
 	newClientMsg := &SmtpdNewClientMsg{}
 	err = proto.Unmarshal(data, newClientMsg)
-	log.Println(err)
 	if err != nil {
-		w.WriteHeader(500)
+		w.WriteHeader(422)
 		w.Write([]byte(err.Error()))
+		return
 	}
 
 	// init response
 	smtpResponse := &SmtpdResponse{
-		SmtpCode: proto.Int32(220),
+		SmtpCode: proto.Int32(0),
 		SmtpMsg:  proto.String(""),
 	}
 
-	// test IP
-	if newClientMsg.GetRemoteIp() == "127.0.0.1" {
+	// test client IP (ip:port)
+	ipPort := strings.Split(newClientMsg.GetRemoteIp(), ":")
+	//  bad format ?
+	if len(ipPort) != 2 {
+		w.WriteHeader(422)
+		w.Write([]byte("422 - Bad remote IP format. Expected ip:port. Got: " + newClientMsg.GetRemoteIp()))
+		return
+	}
+
+	if ipPort[0] == "127.0.0.1" {
 		// return SMTP permFail
 		smtpResponse.SmtpCode = proto.Int32(570)
 		smtpResponse.SmtpMsg = proto.String("sorry you are not allowed to speak to me")
-		// Drop connection
+		// Close connection
 		smtpResponse.CloseConnection = proto.Bool(true)
 	}
 	data, err = proto.Marshal(smtpResponse)
-	log.Println(err)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
