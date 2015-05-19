@@ -54,6 +54,7 @@ func smtpdNewClientHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
+		return
 	}
 	w.Write(data)
 }
