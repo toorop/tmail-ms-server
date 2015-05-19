@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/codegangsta/negroni"
 	"github.com/golang/protobuf/proto"
@@ -24,14 +25,20 @@ func main() {
 	// new smtpd client
 	router.POST("/smtpdnewclient", wrapHandler(hNewSmtpdClient))
 
-	// helo/ehlo
-	//router.POST("/helo", wrapHandler(hHelo))
-
 	// Server
 	n := negroni.New(negroni.NewRecovery(), negroni.NewLogger())
 	n.UseHandler(router)
-	addr := fmt.Sprintf("127.0.0.1:3333")
-	log.Fatalln(http.ListenAndServe(addr, n))
+	log.Fatalln(http.ListenAndServe("127.0.0.1:3333", n))
+}
+
+//
+func returnOnErr(err error, w http.ResponseWriter) bool {
+	if err == nil {
+		return false
+	}
+	w.WriteHeader(500)
+	w.Write([]byte(err.Error()))
+	return true
 }
 
 // hHome home handler
@@ -49,9 +56,8 @@ func hNewSmtpdClient(w http.ResponseWriter, r *http.Request) {
 	}
 	newClientMsg := &SmtpdNewClientMsg{}
 	err = proto.Unmarshal(data, newClientMsg)
-	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte(err.Error()))
+	if returnOnErr(err, w) {
+		return
 	}
 
 	smtpResponse := &SmtpdResponse{
@@ -59,14 +65,42 @@ func hNewSmtpdClient(w http.ResponseWriter, r *http.Request) {
 		SmtpMsg:  proto.String(""),
 	}
 
-	fmt.Println(newClientMsg.GetRemoteIp())
+	ipPort := strings.Split(newClientMsg.GetRemoteIp(), ":")
+	if len(ipPort) != 2 {
+		w.WriteHeader(422)
+		w.Write([]byte("422 - Bad remote IP format. Expected ip:port. Got: " + newClientMsg.GetRemoteIp()))
+		return
+	}
 
-	if newClientMsg.GetRemoteIp() == "127.0.0.1" {
-		smtpResponse.SmtpCode = proto.Int32(421)
-		smtpResponse.SmtpMsg = proto.String("i'm sorry Z, i'm afraid i can't do that.")
-		smtpResponse.CloseConnection = proto.Bool(true)
+	// blacklisted IP
+	//ipPort[0] = "85.70.31.200"
+	suspicious, err := ipHaveNoReverse(ipPort[0])
+	if returnOnErr(err, w) {
+		return
+	}
+
+	if !suspicious {
+		suspicious, err = isBlacklistedOn(ipPort[0], "bl.spamcop.net")
+		if returnOnErr(err, w) {
+			return
+		}
+	}
+
+	if suspicious {
+		isGrey, err := inGreyRbl(ipPort[0])
+		if returnOnErr(err, w) {
+			return
+		}
+		if isGrey {
+			smtpResponse.SmtpCode = proto.Int32(421)
+			smtpResponse.SmtpMsg = proto.String("suspicious IP, try later")
+			smtpResponse.CloseConnection = proto.Bool(true)
+		}
 	}
 	data, err = proto.Marshal(smtpResponse)
+	if returnOnErr(err, w) {
+		return
+	}
 	w.Write(data)
 }
 
