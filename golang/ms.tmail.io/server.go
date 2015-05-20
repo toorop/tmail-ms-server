@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/codegangsta/negroni"
@@ -13,8 +14,16 @@ import (
 	//"github.com/nbio/httpcontext"
 )
 
+var logger *log.Logger
+
 // main launches HTTP server
 func main() {
+	out, err := os.OpenFile("/var/log/tmail/current.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	logger = log.New(out, "", log.Ldate|log.Lmicroseconds)
+
 	router := httprouter.New()
 
 	// Routes
@@ -26,7 +35,7 @@ func main() {
 	router.POST("/smtpdnewclient", wrapHandler(hNewSmtpdClient))
 
 	// Server
-	n := negroni.New(negroni.NewRecovery(), negroni.NewLogger())
+	n := negroni.New(negroni.NewRecovery())
 	n.UseHandler(router)
 	log.Fatalln(http.ListenAndServe("127.0.0.1:3333", n))
 }
@@ -36,6 +45,7 @@ func returnOnErr(err error, w http.ResponseWriter) bool {
 	if err == nil {
 		return false
 	}
+	logger.Printf("Error %s", err.Error())
 	w.WriteHeader(500)
 	w.Write([]byte(err.Error()))
 	return true
@@ -48,9 +58,11 @@ func hHome(w http.ResponseWriter, r *http.Request) {
 
 // hNewSmtpdClient new smtpd client handler
 func hNewSmtpdClient(w http.ResponseWriter, r *http.Request) {
+	logger.Printf("%s - new /smtpdnewclient request", r.RemoteAddr)
 	defer r.Body.Close()
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		logger.Printf("%s - Error %s", r.RemoteAddr, err.Error())
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 	}
@@ -87,13 +99,15 @@ func hNewSmtpdClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if suspicious {
+		logger.Printf("%s - suspicious IP %s", r.RemoteAddr, ipPort[0])
 		isGrey, err := inGreyRbl(ipPort[0])
 		if returnOnErr(err, w) {
 			return
 		}
 		if isGrey {
+			logger.Printf("%s - greylisted IP %s", r.RemoteAddr, ipPort[0])
 			smtpResponse.SmtpCode = proto.Int32(421)
-			smtpResponse.SmtpMsg = proto.String("suspicious IP, try later")
+			smtpResponse.SmtpMsg = proto.String("i'm sorry Z, i'm afraid i can't let you do that now. try later.")
 			smtpResponse.CloseConnection = proto.Bool(true)
 		}
 	}
@@ -102,6 +116,7 @@ func hNewSmtpdClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(data)
+	logger.Printf("%s - ended", r.RemoteAddr)
 }
 
 // wrapHandler puts httprouter.Params in query context

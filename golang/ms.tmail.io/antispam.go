@@ -51,7 +51,7 @@ func inGreyRbl(ip string) (bool, error) {
 			err = mc.Add(&memcache.Item{
 				Key:        ip,
 				Value:      []byte(strconv.FormatInt(time.Now().UnixNano(), 10)),
-				Expiration: 36 * 3600,
+				Expiration: 24 * 3600,
 			})
 			return true, err
 		}
