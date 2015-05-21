@@ -2,15 +2,20 @@ package main
 
 import (
 	//"fmt"
+	"crypto/tls"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/codegangsta/negroni"
 	"github.com/golang/protobuf/proto"
 	"github.com/julienschmidt/httprouter"
+
+	dkim "github.com/toorop/go-dkim"
+
 	//"github.com/nbio/httpcontext"
 )
 
@@ -32,7 +37,10 @@ func main() {
 	router.GET("/", wrapHandler(hHome))
 
 	// new smtpd client
-	router.POST("/smtpdnewclient", wrapHandler(hNewSmtpdClient))
+	router.POST("/smtpdnewclient", wrapHandler(hSmtpdNewClient))
+
+	// smtpdData
+	router.POST("/smtpddata", wrapHandler(hSmtpdData))
 
 	// Server
 	n := negroni.New(negroni.NewRecovery())
@@ -57,8 +65,8 @@ func hHome(w http.ResponseWriter, r *http.Request) {
 }
 
 // hNewSmtpdClient new smtpd client handler
-func hNewSmtpdClient(w http.ResponseWriter, r *http.Request) {
-	logger.Printf("%s - new /smtpdnewclient request", r.RemoteAddr)
+func hSmtpdNewClient(w http.ResponseWriter, r *http.Request) {
+	logger.Printf("%s - new /smtpdnewclient request", r.Header.Get("X-Real-IP"))
 	defer r.Body.Close()
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -105,7 +113,7 @@ func hNewSmtpdClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if isGrey {
-			logger.Printf("%s - greylisted IP %s", r.RemoteAddr, ipPort[0])
+			logger.Printf("%s - greylisted IP %s", r.Header.Get("X-Real-IP"), ipPort[0])
 			smtpResponse.SmtpCode = proto.Int32(421)
 			smtpResponse.SmtpMsg = proto.String("i'm sorry Z, i'm afraid i can't let you do that now. try later.")
 			smtpResponse.CloseConnection = proto.Bool(true)
@@ -116,7 +124,89 @@ func hNewSmtpdClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(data)
-	logger.Printf("%s - ended", r.RemoteAddr)
+	logger.Printf("%s - ended", r.Header.Get("X-Real-IP"))
+}
+
+func hSmtpdData(w http.ResponseWriter, r *http.Request) {
+	logger.Printf("%s - new /smtpdData request", r.Header.Get("X-Real-IP"))
+	defer r.Body.Close()
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		logger.Printf("%s - Error %s", r.RemoteAddr, err.Error())
+		w.WriteHeader(500)
+		w.Write([]byte(err.Error()))
+	}
+	dataMsg := &SmtpdDataMsg{}
+	err = proto.Unmarshal(data, dataMsg)
+	if returnOnErr(err, w) {
+		return
+	}
+
+	// get raw message
+	req, err := http.NewRequest("GET", dataMsg.GetDataLink(), nil)
+	if returnOnErr(err, w) {
+		return
+	}
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	client := &http.Client{
+		Timeout:   15 * time.Second,
+		Transport: tr,
+	}
+	resp, err := client.Do(req)
+	if returnOnErr(err, w) {
+		return
+	}
+	defer resp.Body.Close()
+	rawmail, err := ioutil.ReadAll(resp.Body)
+	if returnOnErr(err, w) {
+		return
+	}
+
+	smtpResponse := &SmtpdResponse{
+		SmtpCode: proto.Int32(0),
+		SmtpMsg:  proto.String(""),
+	}
+
+	flagHaveDkimHeader := true
+	status, err := dkim.Verify(&rawmail)
+	if err != nil && err == dkim.ErrDkimHeaderNotFound {
+		flagHaveDkimHeader = false
+	}
+
+	header2add := "Authentication-Results: dkim="
+
+	if !flagHaveDkimHeader {
+		header2add += "pass (no DKIM header found)"
+	} else {
+		switch status {
+		case dkim.PERMFAIL:
+			header2add += "permfail "
+		case dkim.TEMPFAIL:
+			header2add += "tempfail "
+		case dkim.SUCCESS:
+			header2add += "success"
+		case dkim.TESTINGPERMFAIL, dkim.TESTINGTEMPFAIL, dkim.TESTINGSUCCESS:
+			header2add += "success testing "
+		}
+		if err != nil {
+			header2add += err.Error()
+		}
+	}
+
+	logger.Printf("extra header %s", header2add)
+
+	smtpResponse.ExtraHeaders = append(smtpResponse.ExtraHeaders, header2add)
+
+	data, err = proto.Marshal(smtpResponse)
+	if returnOnErr(err, w) {
+		return
+	}
+	w.Write(data)
+	logger.Printf("%s - ended", r.Header.Get("X-Real-IP"))
+
 }
 
 // wrapHandler puts httprouter.Params in query context

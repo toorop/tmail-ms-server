@@ -13,3 +13,9 @@ message SmtpdNewClientMsg {
 	required string session_id = 1; // smtpd session ID
 	required string remote_ip = 2; 	// remote (client) IP
 }
+
+// smtpdDataMsg
+message SmtpdDataMsg {
+	required string session_id = 1;
+	required string data_link = 2;
+}

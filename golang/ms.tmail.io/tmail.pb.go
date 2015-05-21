@@ -11,6 +11,7 @@ It is generated from these files:
 It has these top-level messages:
 	SmtpdResponse
 	SmtpdNewClientMsg
+	SmtpdDataMsg
 */
 package main
 
@@ -89,6 +90,31 @@ func (m *SmtpdNewClientMsg) GetSessionId() string {
 func (m *SmtpdNewClientMsg) GetRemoteIp() string {
 	if m != nil && m.RemoteIp != nil {
 		return *m.RemoteIp
+	}
+	return ""
+}
+
+// smtpdDataMsg
+type SmtpdDataMsg struct {
+	SessionId        *string `protobuf:"bytes,1,req,name=session_id" json:"session_id,omitempty"`
+	DataLink         *string `protobuf:"bytes,2,req,name=data_link" json:"data_link,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *SmtpdDataMsg) Reset()         { *m = SmtpdDataMsg{} }
+func (m *SmtpdDataMsg) String() string { return proto.CompactTextString(m) }
+func (*SmtpdDataMsg) ProtoMessage()    {}
+
+func (m *SmtpdDataMsg) GetSessionId() string {
+	if m != nil && m.SessionId != nil {
+		return *m.SessionId
+	}
+	return ""
+}
+
+func (m *SmtpdDataMsg) GetDataLink() string {
+	if m != nil && m.DataLink != nil {
+		return *m.DataLink
 	}
 	return ""
 }
