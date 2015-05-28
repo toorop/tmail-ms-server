@@ -38,9 +38,11 @@ func main() {
 
 	// new smtpd client
 	router.POST("/smtpdnewclient", wrapHandler(hSmtpdNewClient))
+	router.POST("/smtpdnewclientgreysmtpd", wrapHandler(hSmtpdNewClient))
 
 	// smtpdData
 	router.POST("/smtpddata", wrapHandler(hSmtpdData))
+	router.POST("/smtpddatadkimverif", wrapHandler(hSmtpdData))
 
 	// Server
 	n := negroni.New(negroni.NewRecovery())
@@ -177,7 +179,7 @@ func hSmtpdData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	header2add := "Authentication-Results: dkim="
-
+	testing := false
 	if !flagHaveDkimHeader {
 		header2add += "pass (no DKIM header found)"
 	} else {
@@ -189,14 +191,13 @@ func hSmtpdData(w http.ResponseWriter, r *http.Request) {
 		case dkim.SUCCESS:
 			header2add += "success"
 		case dkim.TESTINGPERMFAIL, dkim.TESTINGTEMPFAIL, dkim.TESTINGSUCCESS:
+			testing = true
 			header2add += "success testing "
 		}
-		if err != nil {
+		if err != nil && !testing {
 			header2add += err.Error()
 		}
 	}
-
-	logger.Printf("extra header %s", header2add)
 
 	smtpResponse.ExtraHeaders = append(smtpResponse.ExtraHeaders, header2add)
 
