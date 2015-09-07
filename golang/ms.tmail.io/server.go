@@ -76,15 +76,19 @@ func hSmtpdNewClient(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 	}
-	newClientMsg := &SmtpdNewClientMsg{}
+	newClientMsg := &SmtpdNewClientQuery{}
 	err = proto.Unmarshal(data, newClientMsg)
 	if returnOnErr(err, w) {
 		return
 	}
 
-	smtpResponse := &SmtpdResponse{
-		SmtpCode: proto.Int32(220),
-		SmtpMsg:  proto.String(""),
+	response := &SmtpdNewClientResponse{
+		SessionId: proto.String(newClientMsg.GetSessionId()),
+		SmtpResponse: &SmtpResponse{
+			Code: proto.Uint32(0),
+			Msg:  proto.String(""),
+		},
+		DropConnection: proto.Bool(false),
 	}
 
 	ipPort := strings.Split(newClientMsg.GetRemoteIp(), ":")
@@ -116,12 +120,12 @@ func hSmtpdNewClient(w http.ResponseWriter, r *http.Request) {
 		}
 		if isGrey {
 			logger.Printf("%s - greylisted IP %s", r.Header.Get("X-Real-IP"), ipPort[0])
-			smtpResponse.SmtpCode = proto.Int32(421)
-			smtpResponse.SmtpMsg = proto.String("i'm sorry Z, i'm afraid i can't let you do that now. try later.")
-			smtpResponse.CloseConnection = proto.Bool(true)
+			response.SmtpResponse.Code = proto.Uint32(421)
+			response.SmtpResponse.Msg = proto.String("i'm sorry Z, i'm afraid i can't let you do that now. try later.")
+			response.DropConnection = proto.Bool(true)
 		}
 	}
-	data, err = proto.Marshal(smtpResponse)
+	data, err = proto.Marshal(response)
 	if returnOnErr(err, w) {
 		return
 	}
@@ -129,6 +133,7 @@ func hSmtpdNewClient(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("%s - ended", r.Header.Get("X-Real-IP"))
 }
 
+// smtp DATA hook
 func hSmtpdData(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("%s - new /smtpdData request", r.Header.Get("X-Real-IP"))
 	defer r.Body.Close()
@@ -138,14 +143,14 @@ func hSmtpdData(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 	}
-	dataMsg := &SmtpdDataMsg{}
-	err = proto.Unmarshal(data, dataMsg)
+	query := &SmtpdDataQuery{}
+	err = proto.Unmarshal(data, query)
 	if returnOnErr(err, w) {
 		return
 	}
 
 	// get raw message
-	req, err := http.NewRequest("GET", dataMsg.GetDataLink(), nil)
+	req, err := http.NewRequest("GET", query.GetDataLink(), nil)
 	if returnOnErr(err, w) {
 		return
 	}
@@ -167,9 +172,14 @@ func hSmtpdData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	smtpResponse := &SmtpdResponse{
-		SmtpCode: proto.Int32(0),
-		SmtpMsg:  proto.String(""),
+	smtpResponse := &SmtpdDataResponse{
+		SessionId: proto.String(query.GetSessionId()),
+		SmtpResponse: &SmtpResponse{
+			Code: proto.Uint32(0),
+			Msg:  proto.String(""),
+		},
+		ExtraHeaders:   []string{},
+		DropConnection: proto.Bool(false),
 	}
 
 	flagHaveDkimHeader := true

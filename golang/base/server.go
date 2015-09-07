@@ -20,7 +20,7 @@ func smtpdNewClientHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 	}
 
-	newClientMsg := &SmtpdNewClientMsg{}
+	newClientMsg := &SmtpdNewClientQuery{}
 	err = proto.Unmarshal(data, newClientMsg)
 	if err != nil {
 		w.WriteHeader(422)
@@ -29,9 +29,13 @@ func smtpdNewClientHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// init response
-	smtpResponse := &SmtpdResponse{
-		SmtpCode: proto.Int32(0),
-		SmtpMsg:  proto.String(""),
+	response := &SmtpdNewClientResponse{
+		SessionId: proto.String(newClientMsg.GetSessionId()),
+		SmtpResponse: &SmtpResponse{
+			Code: proto.Uint32(0),
+			Msg:  proto.String(""),
+		},
+		DropConnection: proto.Bool(false),
 	}
 
 	// test client IP (ip:port)
@@ -45,12 +49,12 @@ func smtpdNewClientHandler(w http.ResponseWriter, r *http.Request) {
 
 	if ipPort[0] == "127.0.0.1" {
 		// return SMTP permFail
-		smtpResponse.SmtpCode = proto.Int32(570)
-		smtpResponse.SmtpMsg = proto.String("sorry you are not allowed to speak to me")
+		response.SmtpResponse.Code = proto.Uint32(570)
+		response.SmtpResponse.Msg = proto.String("sorry you are not allowed to speak to me")
 		// Close connection
-		smtpResponse.CloseConnection = proto.Bool(true)
+		response.DropConnection = proto.Bool(true)
 	}
-	data, err = proto.Marshal(smtpResponse)
+	data, err = proto.Marshal(response)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
