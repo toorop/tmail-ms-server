@@ -40,6 +40,9 @@ func main() {
 	router.POST("/smtpdnewclient", wrapHandler(hSmtpdNewClient))
 	router.POST("/smtpdnewclientgreysmtpd", wrapHandler(hSmtpdNewClient))
 
+	// SmtpdBeforeQueueing
+	router.POST("/smtpdbeforequeuing", wrapHandler(hSmtpdBeforeQueuing))
+
 	// smtpdData
 	router.POST("/smtpddata", wrapHandler(hSmtpdData))
 	router.POST("/smtpddatadkimverif", wrapHandler(hSmtpdData))
@@ -85,7 +88,7 @@ func hSmtpdNewClient(w http.ResponseWriter, r *http.Request) {
 	response := &SmtpdNewClientResponse{
 		SessionId: proto.String(newClientMsg.GetSessionId()),
 		SmtpResponse: &SmtpResponse{
-			Code: proto.Uint32(0),
+			Code: proto.Int32(0),
 			Msg:  proto.String(""),
 		},
 		DropConnection: proto.Bool(false),
@@ -120,7 +123,7 @@ func hSmtpdNewClient(w http.ResponseWriter, r *http.Request) {
 		}
 		if isGrey {
 			logger.Printf("%s - greylisted IP %s", r.Header.Get("X-Real-IP"), ipPort[0])
-			response.SmtpResponse.Code = proto.Uint32(421)
+			response.SmtpResponse.Code = proto.Int32(421)
 			response.SmtpResponse.Msg = proto.String("i'm sorry Z, i'm afraid i can't let you do that now. try later.")
 			response.DropConnection = proto.Bool(true)
 		}
@@ -131,6 +134,53 @@ func hSmtpdNewClient(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write(data)
 	logger.Printf("%s - ended", r.Header.Get("X-Real-IP"))
+}
+
+// hSmtpdBeforeQueuing before queuing email
+func hSmtpdBeforeQueuing(w http.ResponseWriter, r *http.Request) {
+	logger.Printf("%s - new /smtpdbeforequeuing request", r.Header.Get("X-Real-IP"))
+	logger.Println("ET HO !")
+	defer r.Body.Close()
+	data, err := ioutil.ReadAll(r.Body)
+	if returnOnErr(err, w) {
+		return
+	}
+	query := &SmtpdBeforeQueuingQuery{}
+	err = proto.Unmarshal(data, query)
+	if returnOnErr(err, w) {
+		return
+	}
+	response := &SmtpdBeforeQueuingResponse{
+		SessionId: proto.String(query.GetSessionId()),
+		MailFrom:  proto.String(query.GetMailFrom()),
+	}
+	// if RCPT TO == toorop@tmail.io send a copy for archive to toorop@gmail.com
+	foundGmail := false
+	foundTmail := false
+	rcptTo := query.GetRcptTo()
+	logger.Println(rcptTo)
+
+	for _, email := range rcptTo {
+		logger.Println("email " + email)
+		if email == "toorop@gmail.com" {
+			foundGmail = true
+		}
+		if email == "toorop@tmail.io" {
+			foundTmail = true
+		}
+	}
+	if foundTmail && !foundGmail {
+		rcptTo = append(rcptTo, "toorop@gmail.com")
+	}
+	response.RcptTo = rcptTo
+	logger.Println(rcptTo)
+	data, err = proto.Marshal(response)
+	if returnOnErr(err, w) {
+		return
+	}
+	w.Write(data)
+	logger.Printf("%s - hSmtpdBeforeQueuing ended", r.Header.Get("X-Real-IP"))
+	return
 }
 
 // smtp DATA hook
@@ -175,7 +225,7 @@ func hSmtpdData(w http.ResponseWriter, r *http.Request) {
 	smtpResponse := &SmtpdDataResponse{
 		SessionId: proto.String(query.GetSessionId()),
 		SmtpResponse: &SmtpResponse{
-			Code: proto.Uint32(0),
+			Code: proto.Int32(0),
 			Msg:  proto.String(""),
 		},
 		ExtraHeaders:   []string{},

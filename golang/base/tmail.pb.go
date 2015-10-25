@@ -10,16 +10,20 @@ It is generated from these files:
 
 It has these top-level messages:
 	SmtpResponse
+	SmtpdTelemetry
 	SmtpdNewClientQuery
 	SmtpdNewClientResponse
 	SmtpdRcptToQuery
 	SmtpdRcptToResponse
 	SmtpdDataQuery
 	SmtpdDataResponse
+	SmtpdBeforeQueuingQuery
+	SmtpdBeforeQueuingResponse
+	DeliverdTelemetry
 	DeliverdGetRoutesQuery
 	DeliverdGetRoutesResponse
 */
-package main
+package msproto
 
 import proto "github.com/golang/protobuf/proto"
 import math "math"
@@ -30,7 +34,7 @@ var _ = math.Inf
 
 // SMTP response for smtpd hooks
 type SmtpResponse struct {
-	Code             *uint32 `protobuf:"varint,1,req,name=code" json:"code,omitempty"`
+	Code             *int32  `protobuf:"varint,1,req,name=code" json:"code,omitempty"`
 	Msg              *string `protobuf:"bytes,2,req,name=msg" json:"msg,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
@@ -39,7 +43,7 @@ func (m *SmtpResponse) Reset()         { *m = SmtpResponse{} }
 func (m *SmtpResponse) String() string { return proto.CompactTextString(m) }
 func (*SmtpResponse) ProtoMessage()    {}
 
-func (m *SmtpResponse) GetCode() uint32 {
+func (m *SmtpResponse) GetCode() int32 {
 	if m != nil && m.Code != nil {
 		return *m.Code
 	}
@@ -51,6 +55,103 @@ func (m *SmtpResponse) GetMsg() string {
 		return *m.Msg
 	}
 	return ""
+}
+
+// smtpd telemetry
+type SmtpdTelemetry struct {
+	ServerId         *string  `protobuf:"bytes,1,req,name=server_id" json:"server_id,omitempty"`
+	SessionId        *string  `protobuf:"bytes,2,req,name=session_id" json:"session_id,omitempty"`
+	RemoteAddress    *string  `protobuf:"bytes,3,req,name=remote_address" json:"remote_address,omitempty"`
+	Success          *bool    `protobuf:"varint,4,req,name=success" json:"success,omitempty"`
+	SmtpResponseCode *uint32  `protobuf:"varint,5,req,name=smtp_response_code" json:"smtp_response_code,omitempty"`
+	EnvMailfrom      *string  `protobuf:"bytes,6,req,name=env_mailfrom" json:"env_mailfrom,omitempty"`
+	EnvRcptto        []string `protobuf:"bytes,7,rep,name=env_rcptto" json:"env_rcptto,omitempty"`
+	MessageSize      *uint32  `protobuf:"varint,8,req,name=message_size" json:"message_size,omitempty"`
+	IsTls            *bool    `protobuf:"varint,9,req,name=is_tls" json:"is_tls,omitempty"`
+	Concurrency      *uint32  `protobuf:"varint,10,req,name=concurrency" json:"concurrency,omitempty"`
+	ExecTime         *uint32  `protobuf:"varint,11,req,name=exec_time" json:"exec_time,omitempty"`
+	XXX_unrecognized []byte   `json:"-"`
+}
+
+func (m *SmtpdTelemetry) Reset()         { *m = SmtpdTelemetry{} }
+func (m *SmtpdTelemetry) String() string { return proto.CompactTextString(m) }
+func (*SmtpdTelemetry) ProtoMessage()    {}
+
+func (m *SmtpdTelemetry) GetServerId() string {
+	if m != nil && m.ServerId != nil {
+		return *m.ServerId
+	}
+	return ""
+}
+
+func (m *SmtpdTelemetry) GetSessionId() string {
+	if m != nil && m.SessionId != nil {
+		return *m.SessionId
+	}
+	return ""
+}
+
+func (m *SmtpdTelemetry) GetRemoteAddress() string {
+	if m != nil && m.RemoteAddress != nil {
+		return *m.RemoteAddress
+	}
+	return ""
+}
+
+func (m *SmtpdTelemetry) GetSuccess() bool {
+	if m != nil && m.Success != nil {
+		return *m.Success
+	}
+	return false
+}
+
+func (m *SmtpdTelemetry) GetSmtpResponseCode() uint32 {
+	if m != nil && m.SmtpResponseCode != nil {
+		return *m.SmtpResponseCode
+	}
+	return 0
+}
+
+func (m *SmtpdTelemetry) GetEnvMailfrom() string {
+	if m != nil && m.EnvMailfrom != nil {
+		return *m.EnvMailfrom
+	}
+	return ""
+}
+
+func (m *SmtpdTelemetry) GetEnvRcptto() []string {
+	if m != nil {
+		return m.EnvRcptto
+	}
+	return nil
+}
+
+func (m *SmtpdTelemetry) GetMessageSize() uint32 {
+	if m != nil && m.MessageSize != nil {
+		return *m.MessageSize
+	}
+	return 0
+}
+
+func (m *SmtpdTelemetry) GetIsTls() bool {
+	if m != nil && m.IsTls != nil {
+		return *m.IsTls
+	}
+	return false
+}
+
+func (m *SmtpdTelemetry) GetConcurrency() uint32 {
+	if m != nil && m.Concurrency != nil {
+		return *m.Concurrency
+	}
+	return 0
+}
+
+func (m *SmtpdTelemetry) GetExecTime() uint32 {
+	if m != nil && m.ExecTime != nil {
+		return *m.ExecTime
+	}
+	return 0
 }
 
 // Hook SMTPd New client
@@ -254,13 +355,207 @@ func (m *SmtpdDataResponse) GetExtraHeaders() []string {
 	return nil
 }
 
-// deliverd
+// SmtpdBeforeQueing Query
+type SmtpdBeforeQueuingQuery struct {
+	SessionId        *string  `protobuf:"bytes,1,req,name=session_id" json:"session_id,omitempty"`
+	MailFrom         *string  `protobuf:"bytes,2,req,name=mail_from" json:"mail_from,omitempty"`
+	RcptTo           []string `protobuf:"bytes,3,rep,name=rcpt_to" json:"rcpt_to,omitempty"`
+	XXX_unrecognized []byte   `json:"-"`
+}
+
+func (m *SmtpdBeforeQueuingQuery) Reset()         { *m = SmtpdBeforeQueuingQuery{} }
+func (m *SmtpdBeforeQueuingQuery) String() string { return proto.CompactTextString(m) }
+func (*SmtpdBeforeQueuingQuery) ProtoMessage()    {}
+
+func (m *SmtpdBeforeQueuingQuery) GetSessionId() string {
+	if m != nil && m.SessionId != nil {
+		return *m.SessionId
+	}
+	return ""
+}
+
+func (m *SmtpdBeforeQueuingQuery) GetMailFrom() string {
+	if m != nil && m.MailFrom != nil {
+		return *m.MailFrom
+	}
+	return ""
+}
+
+func (m *SmtpdBeforeQueuingQuery) GetRcptTo() []string {
+	if m != nil {
+		return m.RcptTo
+	}
+	return nil
+}
+
+// SmtpdBefore queuing Response
+type SmtpdBeforeQueuingResponse struct {
+	SessionId        *string       `protobuf:"bytes,1,req,name=session_id" json:"session_id,omitempty"`
+	MailFrom         *string       `protobuf:"bytes,2,opt,name=mail_from" json:"mail_from,omitempty"`
+	RcptTo           []string      `protobuf:"bytes,3,rep,name=rcpt_to" json:"rcpt_to,omitempty"`
+	SmtpResponse     *SmtpResponse `protobuf:"bytes,4,opt,name=smtp_response" json:"smtp_response,omitempty"`
+	DropConnection   *bool         `protobuf:"varint,5,opt,name=drop_connection" json:"drop_connection,omitempty"`
+	XXX_unrecognized []byte        `json:"-"`
+}
+
+func (m *SmtpdBeforeQueuingResponse) Reset()         { *m = SmtpdBeforeQueuingResponse{} }
+func (m *SmtpdBeforeQueuingResponse) String() string { return proto.CompactTextString(m) }
+func (*SmtpdBeforeQueuingResponse) ProtoMessage()    {}
+
+func (m *SmtpdBeforeQueuingResponse) GetSessionId() string {
+	if m != nil && m.SessionId != nil {
+		return *m.SessionId
+	}
+	return ""
+}
+
+func (m *SmtpdBeforeQueuingResponse) GetMailFrom() string {
+	if m != nil && m.MailFrom != nil {
+		return *m.MailFrom
+	}
+	return ""
+}
+
+func (m *SmtpdBeforeQueuingResponse) GetRcptTo() []string {
+	if m != nil {
+		return m.RcptTo
+	}
+	return nil
+}
+
+func (m *SmtpdBeforeQueuingResponse) GetSmtpResponse() *SmtpResponse {
+	if m != nil {
+		return m.SmtpResponse
+	}
+	return nil
+}
+
+func (m *SmtpdBeforeQueuingResponse) GetDropConnection() bool {
+	if m != nil && m.DropConnection != nil {
+		return *m.DropConnection
+	}
+	return false
+}
+
+// telemetry
+type DeliverdTelemetry struct {
+	ServerId               *string `protobuf:"bytes,1,req,name=server_id" json:"server_id,omitempty"`
+	DeliverdId             *string `protobuf:"bytes,2,req,name=deliverd_id" json:"deliverd_id,omitempty"`
+	Success                *bool   `protobuf:"varint,3,req,name=success" json:"success,omitempty"`
+	ExecTime               *uint32 `protobuf:"varint,4,req,name=exec_time" json:"exec_time,omitempty"`
+	MessagesInQueue        *uint32 `protobuf:"varint,5,req,name=messages_in_queue" json:"messages_in_queue,omitempty"`
+	ConcurrencyRemote      *uint32 `protobuf:"varint,6,req,name=concurrency_remote" json:"concurrency_remote,omitempty"`
+	ConcurrencyLocal       *uint32 `protobuf:"varint,7,req,name=concurrency_local" json:"concurrency_local,omitempty"`
+	From                   *string `protobuf:"bytes,8,req,name=from" json:"from,omitempty"`
+	To                     *string `protobuf:"bytes,9,req,name=to" json:"to,omitempty"`
+	IsLocal                *bool   `protobuf:"varint,10,req,name=is_local" json:"is_local,omitempty"`
+	LocalAddress           *string `protobuf:"bytes,11,opt,name=local_address" json:"local_address,omitempty"`
+	RemoteAddress          *string `protobuf:"bytes,12,opt,name=remote_address" json:"remote_address,omitempty"`
+	RemoteSmtpResponseCode *uint32 `protobuf:"varint,13,opt,name=remote_smtp_response_code" json:"remote_smtp_response_code,omitempty"`
+	XXX_unrecognized       []byte  `json:"-"`
+}
+
+func (m *DeliverdTelemetry) Reset()         { *m = DeliverdTelemetry{} }
+func (m *DeliverdTelemetry) String() string { return proto.CompactTextString(m) }
+func (*DeliverdTelemetry) ProtoMessage()    {}
+
+func (m *DeliverdTelemetry) GetServerId() string {
+	if m != nil && m.ServerId != nil {
+		return *m.ServerId
+	}
+	return ""
+}
+
+func (m *DeliverdTelemetry) GetDeliverdId() string {
+	if m != nil && m.DeliverdId != nil {
+		return *m.DeliverdId
+	}
+	return ""
+}
+
+func (m *DeliverdTelemetry) GetSuccess() bool {
+	if m != nil && m.Success != nil {
+		return *m.Success
+	}
+	return false
+}
+
+func (m *DeliverdTelemetry) GetExecTime() uint32 {
+	if m != nil && m.ExecTime != nil {
+		return *m.ExecTime
+	}
+	return 0
+}
+
+func (m *DeliverdTelemetry) GetMessagesInQueue() uint32 {
+	if m != nil && m.MessagesInQueue != nil {
+		return *m.MessagesInQueue
+	}
+	return 0
+}
+
+func (m *DeliverdTelemetry) GetConcurrencyRemote() uint32 {
+	if m != nil && m.ConcurrencyRemote != nil {
+		return *m.ConcurrencyRemote
+	}
+	return 0
+}
+
+func (m *DeliverdTelemetry) GetConcurrencyLocal() uint32 {
+	if m != nil && m.ConcurrencyLocal != nil {
+		return *m.ConcurrencyLocal
+	}
+	return 0
+}
+
+func (m *DeliverdTelemetry) GetFrom() string {
+	if m != nil && m.From != nil {
+		return *m.From
+	}
+	return ""
+}
+
+func (m *DeliverdTelemetry) GetTo() string {
+	if m != nil && m.To != nil {
+		return *m.To
+	}
+	return ""
+}
+
+func (m *DeliverdTelemetry) GetIsLocal() bool {
+	if m != nil && m.IsLocal != nil {
+		return *m.IsLocal
+	}
+	return false
+}
+
+func (m *DeliverdTelemetry) GetLocalAddress() string {
+	if m != nil && m.LocalAddress != nil {
+		return *m.LocalAddress
+	}
+	return ""
+}
+
+func (m *DeliverdTelemetry) GetRemoteAddress() string {
+	if m != nil && m.RemoteAddress != nil {
+		return *m.RemoteAddress
+	}
+	return ""
+}
+
+func (m *DeliverdTelemetry) GetRemoteSmtpResponseCode() uint32 {
+	if m != nil && m.RemoteSmtpResponseCode != nil {
+		return *m.RemoteSmtpResponseCode
+	}
+	return 0
+}
+
 // Get routes query
 type DeliverdGetRoutesQuery struct {
 	DeliverdId       *string `protobuf:"bytes,1,req,name=deliverd_id" json:"deliverd_id,omitempty"`
 	Mailfrom         *string `protobuf:"bytes,2,req,name=mailfrom" json:"mailfrom,omitempty"`
 	Rcptto           *string `protobuf:"bytes,3,req,name=rcptto" json:"rcptto,omitempty"`
-	AuthentifiedUser *string `protobuf:"bytes,4,opt,name=authentified_user" json:"authentified_user,omitempty"`
+	AuthentifiedUser *string `protobuf:"bytes,4,req,name=authentified_user" json:"authentified_user,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 

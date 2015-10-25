@@ -2,7 +2,7 @@ package msproto;
 
 // SMTP response for smtpd hooks
 message SmtpResponse {
-	required uint32 code = 1; 			// SMTP code (ignored if eq 0)
+	required int32 code = 1; 			// SMTP code (ignored if eq 0)
 	required string msg = 2; 			// SMTP message (ignored if eq "")
 
 	//optional bool close_connection = 16;	// if true connection is closed
@@ -10,6 +10,21 @@ message SmtpResponse {
 	//repeated string extra_headers = 18; 	// headers to add
 }
 
+
+// smtpd telemetry
+message SmtpdTelemetry {
+	required string server_id = 1;
+	required string session_id = 2;
+	required string remote_address = 3;
+	required bool success = 4;
+	required uint32 smtp_response_code = 5;
+	required string env_mailfrom = 6;
+	repeated string env_rcptto = 7;
+	required uint32 message_size = 8;
+	required bool is_tls = 9;
+	required uint32 concurrency = 10;
+	required uint32 exec_time = 11;
+	}
 
 // Hook SMTPd New client
 // SmtpdNewClientQuery
@@ -56,14 +71,47 @@ message SmtpdDataResponse {
 	repeated string extra_headers = 5;
 }
 
+// SmtpdBeforeQueing Query
+message SmtpdBeforeQueuingQuery {
+	required string session_id = 1;
+	required string mail_from = 2;
+	repeated string rcpt_to = 3;
+}
+
+// SmtpdBefore queuing Response
+message SmtpdBeforeQueuingResponse {
+	required string session_id = 1;
+	optional string mail_from  = 2;
+	repeated string rcpt_to = 3;
+	optional SmtpResponse smtp_response = 4;
+	optional bool drop_connection = 5;
+}
 
 // deliverd
+
+// telemetry
+message DeliverdTelemetry {
+	required string server_id = 1;
+	required string deliverd_id = 2;
+	required bool success = 3; // status of delivery (success or not)
+	required uint32 exec_time = 4; // in nanosecond
+	required uint32 messages_in_queue = 5;
+	required uint32 concurrency_remote = 6;
+	required uint32 concurrency_local = 7;
+	required string from = 8;
+	required string to = 9;
+	required bool is_local = 10;
+	optional string local_address = 11;
+	optional string remote_address =12;
+	optional uint32 remote_smtp_response_code = 13; // 250, 420, 550,...
+}
+
 // Get routes query
 message DeliverdGetRoutesQuery {
 	required string deliverd_id = 1;
 	required string mailfrom = 2;
 	required string rcptto =  3;
-	optional string authentified_user = 4;
+	required string authentified_user = 4;
 }
 
 // get routes response
